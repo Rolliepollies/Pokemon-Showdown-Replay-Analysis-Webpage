@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<!-- bseconnd stage --> 
+
+<head>
+    <title>Showdown Analysis</title>
+    <style>
+        *,
+        html {
+            margin: 0;
+            padding: 0;
+            border: 0;
+        }
+
+        html {
+            width: 100%;
+            height: 100%;
+        }
+
+        body {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            background-color: rgb(81, 119, 150);
+        }
+
+        .center {
+            width: 100%;
+            height: 50%;
+            margin: 0;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-family: "Trebuchet MS", Helvetica, sans-serif;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 36px;
+            color:black;
+        }
+
+        p {
+            font-size: 18px;
+        }
+
+        label {
+            font-size: 24px;
+        }
+
+        input {
+            font-size: 18px;
+            padding: 5px;
+            margin: 5px;
+        }
+
+        button {
+            font-size: 18px;
+            padding: 5px;
+            margin: 5px;
+            background-color: rgb(81, 119, 150);
+            color: white;
+            border: 2px solid white;
+            border-radius: 5px;
+        }
+
+        button:hover {
+            background-color: white;
+            color: rgb(81, 119, 150);
+        }
+
+        select {
+            font-size: 18px;
+            padding: 5px;
+            margin: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="center">
+        <h1>Showdown Analysis</h1>
+        <p>Types of Analysis: Winrate, Usage, Rng</p>
+        <p>Types of Modifications: format, user, pokemon, type, move</p>
+        <p>Enter the type of Analysis then the modifications you want, if you want a broad review enter all.</p>
+        <form action ="/mod" method ="POST">
+            <label for = "Analysis">Type of analysis:</label>
+            <select id = "Analysis" name = "Analysis">
+                <option value = "Winrate">Winrate</option>
+                <option value = "Usage">Usage</option>
+                <option value = "Rng">Rng</option>
+            </select>
+
+                <label for = "ModType">Type of modifications:</label>
+                <select id = "ModType" name = "ModType">
+                    <option value = "all">all</option>
+                    <option value = "user">user</option>
+                    <option value = "poke">pokemon</option>
+                    <option value = "type">type</option>
+                    <option value = "move">move</option>
+                </select>
+
+
+            <label for = "Mod">Modifications:</label>
+            <input type = "text" id = "Mod" name = "Mod" placeholder = "type here">
+            <button type = "submit">Submit</button>
+        <!--User/Amount-->
+        <!--notification-->
+        </form>
+    </div>
+</body>
+
+</html>
