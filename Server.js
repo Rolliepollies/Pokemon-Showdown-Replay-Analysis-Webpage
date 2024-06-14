@@ -31,7 +31,7 @@ const requestListener = function (req, res) {
             console.log(user);
             account = new Profile(user);
             let amount = await account.getReplaysArray();
-            await account.Winrate(account.replays);
+            await account.Winrate(account.replays, 'none', 'none');
             if (amount === 0) {
                 res.setHeader("Content-Type", "text/html");
                 res.writeHead(200);
@@ -121,14 +121,17 @@ class Profile {
         console.log('winrate');
         console.log(array.length);
         let wins = 0;
-        let p1 =this.user;//just pu the seaarched user as base
         let data = '';
-        NeedThis = '';
-        has = false;
-        noLoop = false;
+        let whichPlayer = false;//false is player 1, true is player 2
+        let loop = true;
+
         for (let i = 0; i < array.length; i++) {
-            console.log(array[i]);
+            if (array[i][array[i].length - 3] === '?') {
+                array[i] = array[i].slice(0, -3);
+            }
             let url = array[i] + '.log';
+            console.log(url);
+            
             try{
                 const response = await axios.get(url);
                 data = response.data;
@@ -138,12 +141,61 @@ class Profile {
                 console.error(error);
             }
             let lines = data.split('\n');
+            switch(Mtype){
+                case 'none':// done
+                    for (let j = lines.length - 2; j >= 0; j--){ // -2 since last line is empty
+                        if (lines[j].split('|')[1] === 'win') {
+                            if (lines[j].split('|')[2].toLowerCase() === this.user.toLowerCase()) {
+                                wins++;
+                                break;
+                            }
+                            break;
+                        }
+                    }
+                    break;
+                case 'user':
+                    for (let j = 0; j < lines.length; j++) {
+                        if (lines[j].split('|')[1] === 'player') {
+                            if (mod.toLowerCase() !== lines[j].split('|')[3].toLowerCase()) {
+                                if (lines[j + 1].split('|')[3].toLowerCase() !== mod.toLowerCase()) {
+                                    break;
+                                }
+                            }
+                            
+                        }
+                        //this is an else if since it should only eval a few times before exiting or not being read
+                        else if (lines[j].split('|')[0] === 'player') { //this if statement evals if there is a player block
+                            let username = lines[j].split('|')[2].toLowerCase();
+                            if (username !== this.user.toLowerCase()) {
+                                if( sec !== mod){
+                                    break;// ealry exit
+                                }
+                                has = true;
+                                
+                            }
+                            
+                        }
+                    }
+                    break;
+                case 'poke'://heere
+                    whichPlayer = this.findPlayer(lines[0]);
+                    break;
+                case 'move':
+                    if (lines[0].split('|')[0] === 'player') { //need to establish effectively who is playe one
+                        if (lines[0].split('|')[2].toLowerCase() === this.user.toLowerCase()) {
+                            let NeedThis = lines[0].split('|')[1];
+                        }
+                    }
+                    break;
+                case 'type':
+                    break;
+            }
                 
                 
-            for (let j = 0; j < lines.length && !noLoop; j++) {
+            /*for (let j = 0; j < lines.length && loop; j++) {
                 if (has === false && lines[j].split('|')[0] !== 'c') {//makes sur i tis not a chat message if has ha snot been altered
                     switch (Mtype) {
-                        case'all':
+                        case'none':
                             has = true;
                             break;
                         case 'user':
@@ -151,7 +203,7 @@ class Profile {
                                 let sec = lines[j].split('|')[2].toLowerCase();
                                 if (sec !== this.user.toLowerCase()) {
                                     if( sec !== mod){
-                                        noLoop = true;// we dont need to check the rest of the replay
+                                        loop = false;// we dont need to check the rest of the replay
                                         break;// ealry exit
                                     }
                                 }
@@ -207,22 +259,37 @@ class Profile {
                     
                 }
                 
-            }
+            }*/
         }
         console.log(wins);
     }
 
-    async exists(poke, num){//num should be 0 for name and 1 for type
+    async existsPoke(poke){
         fs.readFile(__dirname + "/PokData.txt", "utf8")
             .then(contents => {
                 let check = contents.split('\n');
-                noLoop = true;
                 for (let k = 0; k < check.length; k++) {
-                    if (mod.toLowerCase() === check[k].split('\t')[0].toLowerCase()) {
-                        noLoop = false;
-                        break;
+                    if (poke.toLowerCase() === check[k].split('\t')[0].toLowerCase()) {
+                        return false;
                     }
                 }
+                return true;
+            })
+            .catch(err => {
+                console.error(`Could not read index.html file: ${err}`);
+                process.exit(1);
+            });
+    }
+    async existsType(type){
+        fs.readFile(__dirname + "/TypeData.txt", "utf8")
+            .then(contents => {
+                let check = contents.split('\n');
+                for (let k = 0; k < check.length; k++) {
+                    if (type.toLowerCase() === check[k].split('\t')[0].toLowerCase()) {
+                        return false;
+                    }
+                }
+                return true;
             })
             .catch(err => {
                 console.error(`Could not read index.html file: ${err}`);
@@ -238,6 +305,19 @@ class Profile {
         }
         return '';
     }
+    async Win(lines){
+        for (let j = lines.length - 2; j >= 0; j--){ // -2 since last line is empty
+            if (lines[j].split('|')[1] === 'win') {
+                if (lines[j].split('|')[2].toLowerCase() === this.user.toLowerCase()) {
+                    return true;
+                    
+                }
+                return false;
+            }
+        }
+        return false;
+    }
 };
+
 
 
