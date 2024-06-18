@@ -17,11 +17,12 @@ const host = "localhost";
 const port = 8080;
 
 let indexFile; //file for html
-//let Account;
+
+let account;
+let mods ='';
 
 
 const requestListener = function (req, res) {
-    let Account;
     if (req.method === 'POST' && req.url === '/submit') {
         user = '';
         req.on('data', chunk => {
@@ -36,12 +37,12 @@ const requestListener = function (req, res) {
             //await account.Winrate(account.replays, 'twenty100', 'user');
             // await account.Winrate(account.replays, 'vigoroth', 'poke');
             //await account.Winrate(account.replays, 'knockoff', 'move');
-            await account.Winrate(account.replays, '[Gen 9] Random Battle', 'format');
+            //await account.Winrate(account.replays, '[Gen 9] Random Battle', 'format');
             if (amount === 0) {
                 res.setHeader("Content-Type", "text/html");
                 res.writeHead(200);
-                let modifiedIndexFile = indexFile.replace('<!--notification-->', '<p>User does not exist or they dont have any replays</p>');
-                res.end(modifiedIndexFile);
+                let upIndexFile = indexFile.replace('<!--notification-->', '<p>User does not exist or they dont have any replays</p>');
+                res.end(upIndexFile);
             }
             else {
                 res.setHeader("Content-Type", "text/html");
@@ -67,16 +68,36 @@ const requestListener = function (req, res) {
         
         req.on('end', async () => {
             console.log('change' + change);
+            let modifiedIndexFile = '';
             let params = change.split('&');
             let AType = params[0].replace('Analysis=','');
             let MType = params[1].replace('ModType=','');
             let Mod = params[2].replace('Mod=','');
             console.log(AType);
             console.log(MType);
+            Mod = await Mod.replace('+','')
             console.log(Mod);
             switch(AType){
                 case 'Winrate':
-                    await Account.Winrate(account.replays, Mod, MType);
+                    let wins = await account.Winrate(account.replays, Mod, MType);
+                    if(wins === -2){
+                        res.setHeader("Content-Type", "text/html");
+                        res.writeHead(200);
+                        modifiedIndexFile = indexFile.replace('<!--notification-->', `<p>This move or pokemon does not exist(or i have not updated my checker)</p><br><p>modifications in effect: ${mods}</p>`);
+                        break;
+                    }
+                    if(wins === -1){
+                        res.setHeader("Content-Type", "text/html");
+                        res.writeHead(200);
+                        modifiedIndexFile = indexFile.replace('<!--notification-->', `<p>There are no replays that fit this criteria.</p><br><p>modifications in effect: ${mods}</p>`);
+                        break;
+                    }
+                    if (MType !== 'none') { mods += Mod + '  ';}
+                    res.setHeader("Content-Type", "text/html");
+                    res.writeHead(200);
+                    let convert = ((wins/account.replays.length)*100).toFixed(1);
+                    modifiedIndexFile = indexFile.replace('<!--notification-->', `<p>${user.replace('User=','')} has a ${convert}% winrate in ${account.replays.length} matches .</p><br><p>modifications in effect: ${mods}</p>`);
+                    
                     break;
                 case 'Usage':
                     
@@ -84,16 +105,34 @@ const requestListener = function (req, res) {
                 case 'Rng':
                     break;
             }
-            
+            res.end(modifiedIndexFile);
         });
 
 
+    }
+    else if(req.method === 'POST' && req.url === '/reset') {
+        console.log('reset');
+        fs.readFile(__dirname + "/base.html", "utf8")
+            .then(contents => {
+                
+                indexFile = contents;
+                res.setHeader("Content-Type", "text/html");
+                res.writeHead(200);
+                res.end(indexFile);
+                mods = '';
+            })
+            .catch(err => {
+                console.error(`Could not read index.html file: ${err}`);
+                process.exit(1);
+            });
     }
     else {
         res.setHeader("Content-Type", "text/html");
         res.writeHead(200);
         res.end(indexFile);
     }
+    
+
 
 };
 
@@ -129,81 +168,77 @@ class Profile {
         this.replays = links;
         await browser.close();
         this.replays = this.replays.slice(6);
+        for (let i = 0; i < this.replays.length; i++) {
+            if (this.replays[i][this.replays[i].length - 3] === '?') {
+                this.replays[i] = this.replays[i].slice(0, -3);
+            }
+            this.replays[i] = this.replays[i] + '.log';
+        }
         return this.amount = this.replays.length;
     }
-    async Modifications(A,M,Mod){
-            
-    }
-    async Winrate(array, mod, Mtype){
+    async Winrate(array, mod, Mtype){//reurns wins and changes replay array, reurns -1 if no replays
         console.log('array in length: ' + array.length);
+        let pruned=[];
         let wins = 0;
-        let valid = 0;
+        //let valid = 0;
         let data = '';
         let whichPlayer = '';
         let contains = true;
         switch(Mtype){//ealry exitr for move poke and type
             case 'none':
-                break;
+                break;      
             case 'format':
                 break;
             case 'user':
                 break;
             case 'poke':
-                if (!this.existsPoke(mod)){
+                let pokeExists = await this.existsPoke(mod);
+                 if (!pokeExists){
                     console.log('This pokemon does not exist');
-                    return;
+                    return -2;
                 }
                 break;
             case 'move':
-                if(!this.existsMove(mod)){
+                let moveExists = await this.existsMove(mod);
+                 if (!moveExists){
                     console.log('This move does not exist');
-                    return;
+                    return -2;
                 }
                 break;
-            /*case 'type':
-                if(!this.existsType(mod)){
-                    console.log('This type does not exist');
-                    return;
-                }
-                break;*/
         }
 
         for (let i = 0; i < array.length; i++) {
-            if (array[i][array[i].length - 3] === '?') {
-                array[i] = array[i].slice(0, -3);
-            }
-            let url = array[i] + '.log';
-            console.log(url);
+            let url = array[i];
             
             try{
                 const response = await axios.get(url);
                 data = response.data;
-                //console.log(response.data);
+                
             }
             catch (error) {
                 console.error(error);
             }
             let lines = data.split('\n');
             switch(Mtype){
-                case 'none':// done
-                    if (await this.Win(lines)) {
+                case 'none'://done
+                    pruned.push(url);
+                    if(await this.Win(lines)){
                         wins++;
                     }
-                    valid++;
                     break;
                 case 'format'://check
                     contains = false;
                     for (let j = 0; j < 25; j++) {
                         if (lines[j].split('|')[1] === 'tier') {
-                            if (lines[j].split('|')[2].toLowerCase() === mod.toLowerCase()) {
+                            if (lines[j].split('|')[2].toLowerCase().replace(/\s/g, '') === mod.toLowerCase()) {
                                 contains = true;
                                 break;
                             }
                         }
                     }
                     if (contains) {
-                        valid++;
-                        if (await this.Win(lines)) {
+                        pruned.push(url);
+                        if(await this.Win(lines)){
                             wins++;
                         }
                     }
@@ -222,9 +257,9 @@ class Profile {
                         }
                     }
                     if (contains) {
-                        valid++;
-                        if (await this.Win(lines)) {
-                            wins++; 
+                        pruned.push(url);
+                        if(await this.Win(lines)){
+                            wins++;
                         }
                     }
                     contains = true;
@@ -233,7 +268,7 @@ class Profile {
                 case 'poke'://done
                     let pokemon = '';
                     whichPlayer = await this.findPlayer(lines);
-                    //console.log(whichPlayer);
+                    
                     contains = false;
                     for (let j = 0; j < lines.length; j++) {
                         
@@ -260,8 +295,8 @@ class Profile {
                         }
                     }
                     if (contains) {
-                        valid++;
-                        if (await this.Win(lines)) {
+                        pruned.push(url);
+                        if(await this.Win(lines)){
                             wins++;
                         }
                     }
@@ -280,8 +315,8 @@ class Profile {
                             }
                         }
                     }
-                    if(contains){
-                        valid++;
+                    if (contains) {
+                        pruned.push(url);
                         if(await this.Win(lines)){
                             wins++;
                         }
@@ -289,42 +324,202 @@ class Profile {
                     break;
             }
         }
-        console.log('you won this many times: ' + wins + ' out of ' + valid);
+        if(pruned.length === 0){
+            return -1;
+        }
+
+        this.replays = pruned;
+        return wins;
     }
+
+    /*async Accuracy(array, mod, Mtype){//still working on this
+        console.log('array in length: ' + array.length);
+        let pruned=[];
+        let hits = 0;
+        //let valid = 0;
+        let data = '';
+        let whichPlayer = '';
+        let contains = true;
+        switch(Mtype){//ealry exitr for move poke and type
+            case 'none':
+                break;      
+            case 'format':
+                break;
+            case 'user':
+                break;
+            case 'poke':
+                let pokeExists = await this.existsPoke(mod);
+                 if (!pokeExists){
+                    console.log('This pokemon does not exist');
+                    return -2;
+                }
+                break;
+            case 'move':
+                let moveExists = await this.existsMove(mod);
+                 if (!moveExists){
+                    console.log('This move does not exist');
+                    return -2;
+                }
+                break;
+        }
+
+        for (let i = 0; i < array.length; i++) {
+            let url = array[i];
+            
+            try{
+                const response = await axios.get(url);
+                data = response.data;
+                
+            }
+            catch (error) {
+                console.error(error);
+            }
+            let lines = data.split('\n');
+            switch(Mtype){
+                case 'none'://done
+                    pruned.push(url);
+                    if(await this.Win(lines)){
+                        wins++;
+                    }
+                    break;
+                case 'format'://check
+                    contains = false;
+                    for (let j = 0; j < 25; j++) {
+                        if (lines[j].split('|')[1] === 'tier') {
+                            if (lines[j].split('|')[2].toLowerCase().replace(/\s/g, '') === mod.toLowerCase()) {
+                                contains = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (contains) {
+                        pruned.push(url);
+                        if(await this.Win(lines)){
+                            wins++;
+                        }
+                    }
+                case 'user'://done
+                    for (let j = 0; j < lines.length; j++) {
+                        if (lines[j].split('|')[1] === 'player') {
+                            if (mod.toLowerCase() !== lines[j].split('|')[3].toLowerCase()) {
+                                if (lines[j + 1].split('|')[3].toLowerCase() !== mod.toLowerCase()) {
+                                    
+                                    contains = false;
+                                    break;
+                                }
+                            }
+
+                            break;
+                        }
+                    }
+                    if (contains) {
+                        pruned.push(url);
+                        if(await this.Win(lines)){
+                            wins++;
+                        }
+                    }
+                    contains = true;
+                    break;
+
+                case 'poke'://done
+                    let pokemon = '';
+                    whichPlayer = await this.findPlayer(lines);
+                    
+                    contains = false;
+                    for (let j = 0; j < lines.length; j++) {
+                        
+                        if (lines[j].split('|')[1] === 'switch') {
+                            if (whichPlayer === lines[j].split('|')[2].split('a')[0]) {
+                                let pok = lines[j].split('|')[2].split(':')[1].toLowerCase().replace(/\s/g, '');
+                                if (pok === mod.toLowerCase()) {
+                                    contains = true;
+                                    break;
+                                }
+                                for (let k = 0; k < 6; k++) {
+                                    if(pok === pokemon.split(' ')[k]){//inside pokemon string names are separated by spaces
+                                        break;
+                                    }
+                                    if(k === 5){
+                                        pokemon += pok + ' ';
+                                    }
+                                }   
+                                if(pokemon.split(' ').length >= 6){//exits early if all pokemon are checked
+                                    break;
+                                }
+
+                            }
+                        }
+                    }
+                    if (contains) {
+                        pruned.push(url);
+                        if(await this.Win(lines)){
+                            wins++;
+                        }
+                    }
+                    break;
+
+                case 'move'://done
+                    whichPlayer = await this.findPlayer(lines);
+                    contains = false;
+                    for(let j = 0; j < lines.length; j++){
+                        if(lines[j].split('|')[1] === 'move'){
+                            if(whichPlayer === lines[j].split('|')[2].split('a')[0]){
+                                if(lines[j].split('|')[3].toLowerCase().replace(/\s/g, '') === mod.toLowerCase()){
+                                    contains = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if (contains) {
+                        pruned.push(url);
+                        if(await this.Win(lines)){
+                            wins++;
+                        }
+                    }
+                    break;
+            }
+        }
+        if(pruned.length === 0){
+            return -1;
+        }
+
+        this.replays = pruned;
+        return wins;
+    }*/
 
     async existsPoke(poke){
-        fs.readFile(__dirname + "/PokData.txt", "utf8")
-            .then(contents => {
-                let check = contents.split('\n');
+        try {
+            const contents = await fs.readFile(__dirname + "/PokData.txt", "utf8");
+            const check = contents.split('\n');
                 for (let k = 0; k < check.length; k++) {
                     if (poke.toLowerCase() === check[k].split('\t')[0].toLowerCase()) {
+                        console.log('true');
                         return true;
                     }
                 }
+                console.log('false');
                 return false;
-            })
-            .catch(err => {
-                console.error(`Could not read index.html file: ${err}`);
-                process.exit(1);
-            });
+        } catch (err) {
+            console.error(`Could not read file: ${err}`);
+            process.exit(1);
+        }
     }
     async existsMove(move){
-        fs.readFile(__dirname + "/moves.txt", "utf8")
-            .then(contents => {
-                let check = contents.split('\n');
-                for (let k = 0; k < check.length; k++) {
-                    if (move.replace(/\s/g, '').toLowerCase() === check[k]) {
-                        
-                        return true;
-
-                    }
+        try {
+            const contents = await fs.readFile(__dirname + "/moves.txt", "utf8");
+            const check = contents.split('\n');
+            for (let k = 0; k < check.length; k++) {
+                if (move.replace(/\s/g, '').toLowerCase() === check[k].toLowerCase()) {
+                    console.log('true');
+                    return true;
                 }
-                return false;
-            })
-            .catch(err => {
-                console.error(`Could not read file: ${err}`);
-                process.exit(1);
-            });
+            }
+            return false;
+        } catch (err) {
+            console.error(`Could not read file: ${err}`);
+            process.exit(1);
+        }
         
     }
 
@@ -357,6 +552,7 @@ class Profile {
         console.log('Error in finding player');
     }
     async Win(lines){
+        
         for (let j = lines.length - 2; j >= 0; j--){ // -2 since last line is empty
             if (lines[j].split('|')[1] === 'win') {
                 if (lines[j].split('|')[2].toLowerCase() === this.user.toLowerCase()) {
@@ -369,5 +565,3 @@ class Profile {
         return false;
     }
 };
-
-
