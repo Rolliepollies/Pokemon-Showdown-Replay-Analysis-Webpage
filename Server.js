@@ -180,11 +180,10 @@ class Profile {
         console.log('array in length: ' + array.length);
         let pruned=[];
         let wins = 0;
-        //let valid = 0;
         let data = '';
         let whichPlayer = '';
         let contains = true;
-        switch(Mtype){//ealry exitr for move poke and type
+        switch(Mtype){//ealry exit for move and poke
             case 'none':
                 break;      
             case 'format':
@@ -226,7 +225,7 @@ class Profile {
                         wins++;
                     }
                     break;
-                case 'format'://check
+                case 'format'://done
                     contains = false;
                     for (let j = 0; j < 25; j++) {
                         if (lines[j].split('|')[1] === 'tier') {
@@ -332,7 +331,7 @@ class Profile {
         return wins;
     }
 
-    /*async Accuracy(array, mod, Mtype){//still working on this
+    /*async Accuracy(array, mod, Mtype){//       still working on this
         console.log('array in length: ' + array.length);
         let pruned=[];
         let hits = 0;
@@ -565,3 +564,5 @@ class Profile {
         return false;
     }
 };
+
+
